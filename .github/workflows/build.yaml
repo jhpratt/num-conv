@@ -1,0 +1,70 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["**"]
+    paths-ignore:
+      - "**.md"
+      - LICENSE-Apache
+      - LICENSE-MIT
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - LICENSE-Apache
+      - LICENSE-MIT
+  workflow_dispatch:
+
+jobs:
+  powerset:
+    name: Tests (${{ matrix.rust.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust:
+          - { version: "1.57.0", name: MSRV }
+          - { version: stable, name: stable }
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust.version }}
+
+      - name: Tests
+        run: cargo test
+
+  formatting:
+    name: Formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Run clippy
+        run: cargo clippy --all-features
