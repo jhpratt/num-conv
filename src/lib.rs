@@ -36,6 +36,8 @@ mod sealed {
 
     pub trait TruncateTargetSealed<T> {
         fn truncate(self) -> T;
+        fn saturating_truncate(self) -> T;
+        fn checked_truncate(self) -> Option<T>;
     }
 }
 
@@ -84,7 +86,9 @@ impl<T: sealed::Integer> Extend for T {
     }
 }
 
-/// Truncate to an integer of the same size or smaller, preserving the least significant bits.
+/// Truncate to an integer of the same size or smaller.
+///
+/// Preserve the least significant bits with `.truncate()`:
 ///
 /// ```rust
 /// # use num_conv::Truncate;
@@ -101,10 +105,58 @@ impl<T: sealed::Integer> Extend for T {
 /// assert_eq!((-1_i64).truncate::<i32>(), -1_i32);
 /// assert_eq!((-1_i128).truncate::<i64>(), -1_i64);
 /// ```
+///
+/// Saturate to the numeric bounds with `.saturating_truncate()`:
+///
+/// ```rust
+/// # use num_conv::Truncate;
+/// assert_eq!(500_u16.saturating_truncate::<u8>(), u8::MAX);
+/// assert_eq!(u32::MAX.saturating_truncate::<u16>(), u16::MAX);
+/// assert_eq!(u64::MAX.saturating_truncate::<u32>(), u32::MAX);
+/// assert_eq!(u128::MAX.saturating_truncate::<u64>(), u64::MAX);
+/// ```
+///
+/// ```rust
+/// # use num_conv::Truncate;
+/// assert_eq!((-500_i16).saturating_truncate::<i8>(), i8::MIN);
+/// assert_eq!(i32::MIN.saturating_truncate::<i16>(), i16::MIN);
+/// assert_eq!(i64::MIN.saturating_truncate::<i32>(), i32::MIN);
+/// assert_eq!(i128::MIN.saturating_truncate::<i64>(), i64::MIN);
+/// ```
+///
+/// Checked with `.checked_truncate()`, returning `None` if the value is out of range:
+///
+/// ```rust
+/// # use num_conv::Truncate;
+/// assert_eq!(u16::MAX.checked_truncate::<u8>(), None);
+/// assert_eq!(u32::MAX.checked_truncate::<u16>(), None);
+/// assert_eq!(u64::MAX.checked_truncate::<u32>(), None);
+/// assert_eq!(u128::MAX.checked_truncate::<u64>(), None);
+/// ```
+///
+/// ```rust
+/// # use num_conv::Truncate;
+/// assert_eq!(i16::MIN.checked_truncate::<i8>(), None);
+/// assert_eq!(i32::MIN.checked_truncate::<i16>(), None);
+/// assert_eq!(i64::MIN.checked_truncate::<i32>(), None);
+/// assert_eq!(i128::MIN.checked_truncate::<i64>(), None);
+/// ```
 pub trait Truncate: sealed::Integer {
     /// Truncate an integer to an integer of the same size or smaller, preserving the least
     /// significant bits.
     fn truncate<T>(self) -> T
+    where
+        Self: TruncateTarget<T>;
+
+    /// Truncate an integer to an integer of the same size or smaller, saturating to the numeric
+    /// bounds instead of wrapping.
+    fn saturating_truncate<T>(self) -> T
+    where
+        Self: TruncateTarget<T>;
+
+    /// Truncate an integer to an integer of the same size or smaller, returning `None` if the value
+    /// is out of range.
+    fn checked_truncate<T>(self) -> Option<T>
     where
         Self: TruncateTarget<T>;
 }
@@ -115,6 +167,20 @@ impl<T: sealed::Integer> Truncate for T {
         T: TruncateTarget<U>,
     {
         sealed::TruncateTargetSealed::truncate(self)
+    }
+
+    fn saturating_truncate<U>(self) -> U
+    where
+        T: TruncateTarget<U>,
+    {
+        sealed::TruncateTargetSealed::saturating_truncate(self)
+    }
+
+    fn checked_truncate<U>(self) -> Option<U>
+    where
+        T: TruncateTarget<U>,
+    {
+        sealed::TruncateTargetSealed::checked_truncate(self)
     }
 }
 
@@ -163,6 +229,24 @@ macro_rules! impl_truncate {
         impl sealed::TruncateTargetSealed<$to> for $from {
             fn truncate(self) -> $to {
                 self as _
+            }
+
+            fn saturating_truncate(self) -> $to {
+                if self > <$to>::MAX as _ {
+                    <$to>::MAX
+                } else if self < <$to>::MIN as _ {
+                    <$to>::MIN
+                } else {
+                    self as _
+                }
+            }
+
+            fn checked_truncate(self) -> Option<$to> {
+                if self > <$to>::MAX as _ || self < <$to>::MIN as _ {
+                    None
+                } else {
+                    Some(self as _)
+                }
             }
         }
 
