@@ -201,6 +201,7 @@ macro_rules! impl_extend {
         );
 
         impl sealed::ExtendTargetSealed<$to> for $from {
+            #[inline]
             fn extend(self) -> $to {
                 self as _
             }
@@ -227,10 +228,12 @@ macro_rules! impl_truncate {
         );
 
         impl sealed::TruncateTargetSealed<$to> for $from {
+            #[inline]
             fn truncate(self) -> $to {
                 self as _
             }
 
+            #[inline]
             fn saturating_truncate(self) -> $to {
                 if self > <$to>::MAX as _ {
                     <$to>::MAX
@@ -241,6 +244,7 @@ macro_rules! impl_truncate {
                 }
             }
 
+            #[inline]
             fn checked_truncate(self) -> Option<$to> {
                 if self > <$to>::MAX as _ || self < <$to>::MIN as _ {
                     None
